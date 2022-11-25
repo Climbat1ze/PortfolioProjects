@@ -1,0 +1,175 @@
+-- STEPS:
+-- I. Download the dataset frm here:
+-- https://ourworldindata.org/covid-deaths
+-- https://github.com/AlexTheAnalyst/PortfolioProjects/blob/main/CovidDeaths.xlsx
+-- https://github.com/AlexTheAnalyst/PortfolioProjects/blob/main/CovidVaccinations.xlsx
+
+-- II. Create tables within BigQuery Project. Tables names:
+-- 20221121_Covid_Deaths_v1
+-- 20221121_Covid_Vaccinations_v1
+
+-- III. Clearing-up tables, removing unwanted data
+
+--  IV. Test Queries
+
+ SELECT * FROM  `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1` --
+ ORDER BY  3,  4
+
+ SELECT * FROM  `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Vaccinations_v1` --
+ ORDER BY  3,  4
+
+-- V. Select Data I will use in the Project
+
+ SELECT location,date,total_cases,new_cases,total_deaths,population
+ FROM `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1` --
+ ORDER BY 1,2
+
+-- VI. Creating basic queries using existing data
+
+-- looking at total_cases vs total_deaths
+-- how possible is you die if you are infeced by Covid in the given country - on the example of Poland
+ SELECT location,date,total_cases,total_deaths,(total_deaths/total_cases)*100 AS Death_Percentage
+ FROM`cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1`
+ WHERE location LIKE "%Poland%"
+ ORDER BY 1,2
+
+-- Lookig at total_cases vs the Population
+-- shows what percentage of populaion got Covid
+-- Looking for cases for a given country in time
+ SELECT location,date,Population,total_cases,(total_cases/population)*100 AS Infected_Percentage
+ FROM`cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1`
+ WHERE location LIKE "%Poland%"
+ ORDER BY 1,2
+
+-- Looking at countries with the highest infection rate compared to population
+-- Creating "Highest_Infection_Count" as a max value of "total_cases" to get a single result for a country
+-- Creating "Infected_Population_Percentage" as a max valu of the function (total_cases/population) multiplied by 100 to get % results
+-- Presenting in desc order by the % of infected population
+ SELECT location,Population,MAX((total_cases)) as Highest_Infection_Count,MAX((total_cases/population))*100 AS Infected_Population_Percentage
+ FROM`cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1`
+ GROUP BY Location, Population
+ ORDER BY Infected_Population_Percentage desc
+
+-- Looking at countries with the highest total_death compared to population
+ SELECT location,Population,MAX((total_deaths)) as Highest_Deaths_Count,MAX((total_deaths/population))*100 AS Deaths_Population_Percentage
+ FROM`cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1`
+ GROUP BY Location, Population
+ ORDER BY Deaths_Population_Percentage desc
+
+--Looking at countries with the highest total_death
+--Removing continents from results if appear in the location column
+ SELECT location,MAX(cast(total_deaths as int)) as Total_Deaths_Count
+ FROM`cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1`
+ Where continent is not null
+ GROUP BY Location
+ ORDER BY Total_Deaths_Count desc
+
+-- Looking at countries with the highest total_death. Group by continent
+SELECT continent,MAX(cast(total_deaths as int)) as Total_Deaths_Count
+FROM`cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1`
+Where continent is not null
+GROUP BY continent
+ORDER BY Total_Deaths_Count desc
+
+-- note: data seems to be inacuarte since North America doesnt include Canada
+-- Another appraoch
+-- Group by continent
+ SELECT location,MAX(cast(total_deaths as int)) as Total_Deaths_Count
+ FROM`cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1`
+ Where continent is null
+ GROUP BY location
+ ORDER BY Total_Deaths_Count desc
+
+-- SHOWING CONTINENTS WITH THE HIGHEST TOTAL_DEATHS_COUNT PER POPULATION
+-- Correcting the innacurcy of results showing world and doubling Europe and European Union
+ SELECT continent,MAX(cast(total_deaths as int)) as Total_Deaths_Count, MAX((total_deaths/population))*100 AS Deaths_Population_Percentage
+ FROM`cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1`
+ Where continent is not null
+ GROUP BY continent
+ ORDER BY Deaths_Population_Percentage desc
+
+--GLOBAL NUMBERS
+
+--total new cases globaly by day and total new deaths globaly by day and percentage of fatal cases in %
+SELECT date, SUM(new_cases) AS Total_cases_globally,SUM(new_deaths) AS Total_deaths_globally, (SUM(new_deaths)/SUM(New_cases))*100 AS Death_Percentage
+FROM`cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1`
+Where continent is not null
+GROUP by date
+ORDER BY 1,2
+
+--total new cases in Poland by day and total new deaths in Poland by day and percentage of fatal cases in %
+--optionally the descending order of fatal cases by day - the most of fatal cases were recorded on 2020-04-28 - 34 deaths and 316 new cases
+SELECT date, SUM(new_cases) AS Total_cases_globally,SUM(new_deaths) AS Total_deaths_globally, (SUM(new_deaths)/SUM(New_cases))*100 AS Death_Percentage
+FROM`cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1`
+--WHERE continent is not null
+WHERE location LIKE "%Poland%"
+GROUP by date
+--ORDER BY 1,2
+ORDER BY Death_Percentage desc
+
+-- total new cases globally and total new deaths globally
+SELECT SUM(new_cases) AS Total_cases_globally,SUM(new_deaths) AS Total_deaths_globally, (SUM(new_deaths)/SUM(New_cases))*100 AS Death_Percentage
+FROM`cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1`
+Where continent is not null
+ORDER BY 1,2
+
+-- VII. Merging tables
+
+-- Selecting table sto merge
+-- Pick a parameter which will connect tables
+-- Defining long tables' names as shorter forms 
+SELECT *
+FROM `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1` as dea
+JOIN `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Vaccinations_v1` as vac
+  on dea.location=vac.location
+  and dea.date=vac.date
+
+-- Looking at total population vs vaccination. What is the amount of vaccinated people globaly. Reading results from both tables is required.
+
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations 
+FROM `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1` as dea
+JOIN `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Vaccinations_v1` as vac
+  on dea.location=vac.location
+  and dea.date=vac.date 
+Where dea.continent is not null
+order by 2,3
+
+-- VIII. Rolling total 
+
+-- Let's calculate rolling total (suma krocząca) of new vaccinations
+ SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(vac.new_vaccinations) OVER (partition by dea.location ORDER BY dea.location, dea.date) as RollingPeopleVaccinated, (RollingPeopleVaccinated / vac.population)*100 AS RollingPercentVaccinated
+ FROM `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1` dea
+ JOIN `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Vaccinations_v1` vac
+   on dea.location=vac.location
+   and dea.date=vac.date 
+ WHERE dea.continent is not null
+ order by 2,3
+--The error occured - "Unrecognized name: RollingPeopleVaccinated" - RollingPeopleVaccinated is not defined. I can't use the column I've just created
+--Two ways to approach the problem: 1) create the the temp table, where I will define parameters or 2) CTE (Common Table Expression)
+
+-- IX. USE CTE
+-- Calculating "RollingPercentVaccinated" - the number will grow. Presentation of results for the given country
+
+With PopvsVac 
+AS (
+SELECT dea.date, dea.location, dea.population, dea.continent, vac.new_vaccinations, SUM(vac.new_vaccinations) OVER (partition by dea.location ORDER BY dea.location, dea.date) as RollingPeopleVaccinated--, (RollingPeopleVaccinated / vac.population)*100 AS RollingPercentVaccinated
+FROM `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1` as dea
+JOIN `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Vaccinations_v1` as vac
+   on dea.location=vac.location
+   and dea.date=vac.date 
+WHERE dea.continent is not null
+order by 2,3
+)
+Select *, (RollingPeopleVaccinated / population)*100 AS RollingPercentVaccinated
+From PopvsVac
+
+-- X. Creating a view to store data for later visualizations
+
+-- INSERT INTO PercentPopulationVaccinated as
+SELECT dea.date, dea.location, dea.population, dea.continent, vac.new_vaccinations, SUM(vac.new_vaccinations) OVER (partition by dea.location ORDER BY dea.location, dea.date) as RollingPeopleVaccinated
+FROM `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Deaths_v1` as dea
+JOIN `cogent-nimbus-368313.Portfolio_Project_1_of_4.20221121_Covid_Vaccinations_v1` as vac
+   on dea.location=vac.location
+   and dea.date=vac.date 
+WHERE dea.continent is not null
+order by 2,3
