@@ -1,0 +1,40 @@
+Video Game Database
+Work on project. Stage 4/4: Down the rabbit hole, pt. 2
+
+/*The query checks for the address details of a game developer who is located in the state that has the highest number of video game releases. 
+Here's a breakdown of what the query is doing*/
+
+/* It selects the address, city, state, and country of game developers from the "game_developers" table*/
+
+SELECT game_developers.address, game_developers.city, game_developers.state, game_developers.country
+FROM game_developers
+
+/* It joins the "video_games_latest" table, which is a subquery that selects the game_developer and release_date from the "video_games" table and orders them by release date in descending order. This subquery is used to get the latest release date for each game developer.*/
+
+JOIN (
+    SELECT game_developer, release_date
+    FROM video_games
+    ORDER BY release_date DESC
+) AS video_games_latest
+ON game_developers.name = video_games_latest.game_developer
+
+/* The query joins the "s" subquery, which selects the state with the highest number of video games from the "video_games" and "game_developers" tables. This subquery groups the video games by state, counts the number of games for each state, and orders them by the number of games in descending order. The state with the highest number of games is selected using the LIMIT clause.*/
+
+JOIN (
+    SELECT state, COUNT(*) AS num_games
+    FROM video_games
+    JOIN game_developers ON video_games.game_developer = game_developers.name
+    WHERE game_developers.state IS NOT NULL
+    GROUP BY game_developers.state
+    ORDER BY num_games DESC
+    LIMIT 1
+) AS s
+
+/* The query then joins the "game_developers" and "s" tables on the state column to filter the results to only include game developers located in the state with the highest number of video games.*/
+
+ON game_developers.state = s.state
+WHERE game_developers.state IS NOT NULL
+
+/* Finally, the query limits the results to only include one row and selects the first row that matches the conditions.*/
+
+LIMIT 1;
